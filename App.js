@@ -14,11 +14,11 @@ import {
 } from "@serserm/react-native-turbo-serialport";
 
 initSerialport({
-  autoConnect: false,
+  autoConnect: true,
   mode: Mode.ASYNC,
   params: {
-    driver: DriverType.AUTO,
-    portInterface: -1, // all interfaces
+    driver: DriverType.CDC,
+    portInterface: 1,
     returnedDataType: ReturnedDataType.UTF8,
     baudRate: 9600,
     dataBit: DataBit.DATA_BITS_8,
@@ -30,16 +30,15 @@ initSerialport({
 
 export default function App() {
   const [connectedDevice, setConnectedDevice] = useState(null);
-
   let receiveBuffer = "";
 
   const serialport = useSerialport({
     onError: ({ errorCode, errorMessage }) => {
-      console.log("Serial Error:", errorMessage);
-      Alert.alert("Serial Error", errorMessage);
+      console.log("Serial Error:", errorCode, errorMessage);
+      Alert.alert("Serial Error", errorCode, errorMessage);
     },
     onReadData: ({ deviceId, portInterface, data }) => {
-      if (portInterface !== 1) return; // Ignore other interfaces
+      if (portInterface !== 1) return;
 
       receiveBuffer += data;
 
@@ -54,10 +53,14 @@ export default function App() {
       }
     },
     onConnected: ({ deviceId, portInterface }) => {
-      console.log(`Connected: Device ${deviceId}, IF ${portInterface}`);
+      if (portInterface === 1) {
+        console.log(`Connected to Device ${deviceId} on IF 1`);
+        setConnectedDevice({ deviceId, portInterface });
+      }
     },
     onDisconnected: ({ deviceId }) => {
       console.log("Device disconnected:", deviceId);
+      setConnectedDevice(null);
     },
     onDeviceAttached: ({ deviceId }) => {
       console.log("Device attached:", deviceId);
@@ -67,39 +70,6 @@ export default function App() {
     },
   });
 
-  const { listDevices } = serialport;
-
-  const onPressSearch = async () => {
-    const devices = await listDevices();
-    const supportedDevice = devices.find((d) => d.isSupported);
-
-    if (!supportedDevice) {
-      Alert.alert("No supported USB device found.");
-      return;
-    }
-
-    try {
-      supportedDevice.setParams({
-        baudRate: 9600,
-        dataBit: DataBit.DATA_BITS_8,
-        stopBit: StopBit.STOP_BITS_1,
-        parity: Parity.PARITY_NONE,
-        flowControl: FlowControl.FLOW_CONTROL_OFF,
-      });
-
-      // Connect both interfaces explicitly if needed
-      await supportedDevice.connect();
-
-      setConnectedDevice(supportedDevice);
-      Alert.alert(
-        "Device connected",
-        supportedDevice.productName || "Unnamed device"
-      );
-    } catch (err) {
-      Alert.alert("Failed to connect", err.message);
-    }
-  };
-
   const sendCommand = (message) => {
     if (!connectedDevice) {
       Alert.alert("Not connected", "Please connect a device first.");
@@ -107,7 +77,7 @@ export default function App() {
     }
 
     try {
-      connectedDevice.writeString(message + "\r\n", 1);
+      serialport.writeString(message + "\r\n", connectedDevice.deviceId, 1);
     } catch (err) {
       Alert.alert("Failed to send", err.message);
     }
@@ -116,8 +86,6 @@ export default function App() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>USB Serial LED Controller</Text>
-      <Button title="Search & Connect USB Device" onPress={onPressSearch} />
-      <View style={{ height: 20 }} />
       <Button title="LED ON" onPress={() => sendCommand("LED ON")} />
       <View style={{ height: 10 }} />
       <Button title="LED OFF" onPress={() => sendCommand("LED OFF")} />
