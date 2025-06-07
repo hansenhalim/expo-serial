@@ -31,13 +31,27 @@ initSerialport({
 export default function App() {
   const [connectedDevice, setConnectedDevice] = useState(null);
 
+  let receiveBuffer = "";
+
   const serialport = useSerialport({
     onError: ({ errorCode, errorMessage }) => {
       console.log("Serial Error:", errorMessage);
       Alert.alert("Serial Error", errorMessage);
     },
     onReadData: ({ deviceId, portInterface, data }) => {
-      console.log(`Received Device ${deviceId}, IF ${portInterface}:`, data);
+      if (portInterface !== 1) return; // Ignore other interfaces
+
+      receiveBuffer += data;
+
+      let index;
+      while ((index = receiveBuffer.indexOf("\r\n")) !== -1) {
+        const line = receiveBuffer.slice(0, index);
+        const remaining = receiveBuffer.slice(index + 2);
+
+        console.log(`Received from Device ${deviceId}, IF 1:`, line);
+
+        receiveBuffer = remaining;
+      }
     },
     onConnected: ({ deviceId, portInterface }) => {
       console.log(`Connected: Device ${deviceId}, IF ${portInterface}`);
@@ -93,8 +107,7 @@ export default function App() {
     }
 
     try {
-      connectedDevice.writeString(message + "\n", 1); // Write to interface 1
-      connectedDevice.writeString(message + "\n", 2); // Write to interface 2
+      connectedDevice.writeString(message + "\r\n", 1);
     } catch (err) {
       Alert.alert("Failed to send", err.message);
     }
