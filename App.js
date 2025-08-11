@@ -85,7 +85,9 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>USB Serial LED Controller</Text>
+      <Text style={[styles.title, connectedDevice && styles.connectedTitle]}>
+        USB Serial LED Controller
+      </Text>
       <Button title="LED ON" onPress={() => sendCommand("LED ON")} />
       <View style={{ height: 10 }} />
       <Button title="LED OFF" onPress={() => sendCommand("LED OFF")} />
@@ -106,5 +108,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: "white",
     marginBottom: 20,
+    textAlign: "center",
+  },
+  connectedTitle: {
+    color: "#00ff00",
+    textShadowColor: "#00ff0088",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
 });
